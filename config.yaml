@@ -1,0 +1,30 @@
+# Config
+
+paths:
+  voids_folder: "/home/ftoscano/Doctorado/Data/CATALOGOS/2MRS_VOIDS_z0.03"
+  cmb_folder: "/home/ftoscano/Doctorado/Data/CMB"
+  output_folder: "/home/ftoscano/Doctorado/Proyectos/CosmoExFog/Output/"
+  plots_folder: "/home/ftoscano/Doctorado/Proyectos/CosmoExFog/Plots"
+
+spatial_correlation:
+  configs_to_run: ['base', 'l02', 'l03']
+  n_voids: 25
+  voids_type: "full_sample" # 'full_sample' o 'volume_complete'
+  n_sims: 300
+  l_rm_list: [2, 3] # Multipoles to remove
+  smoothing_angles: [30.0, 45.0, 60.0]
+  r_min: 8
+  r_max: 100
+  deltalos_max: 0
+  frac_rvoid: 0.5
+  nside: 2048
+
+cmb_params:
+  nside: 2048
+  lmax: 100
+  multipole_cuts: ['normal', 'no_ell2', 'no_ell3']
+
+mcmc_setup:
+  Rminus1_stop: 0.05
+  max_tries: 10000
+

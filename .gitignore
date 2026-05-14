@@ -31,7 +31,7 @@ Data/
 Plots/
 Results/
 Output/
-COBAYA_MCMC/
+Cobaya_MCMC/
 
 # Ignorar formatos de datos astrofísicos y resultados
 *.fits
