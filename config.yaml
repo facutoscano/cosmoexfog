@@ -1,24 +1,100 @@
-# Config
+# CosmoExFog Configuration File
 
 paths:
-  voids_folder: "/home/ftoscano/Doctorado/Data/CATALOGOS/2MRS_VOIDS_z0.03"
-  cmb_folder: "/home/ftoscano/Doctorado/Data/CMB"
+  voids_folder:  "/home/ftoscano/Doctorado/Data/CATALOGOS/2MRS_VOIDS_z0.03/"
+  cmb_folder:    "/home/ftoscano/Doctorado/Data/CMB/"
+  cls_folder:    "/home/ftoscano/Doctorado/Data/CMB/Cls/" 
+  masks_folder:  "/home/ftoscano/Doctorado/Data/CMB/Masks/" 
   output_folder: "/home/ftoscano/Doctorado/Proyectos/CosmoExFog/Output/"
-  plots_folder: "/home/ftoscano/Doctorado/Proyectos/CosmoExFog/Plots"
+  plots_folder:  "/home/ftoscano/Doctorado/Proyectos/CosmoExFog/Plots/"
 
+# ── MODE 1: Spatial Correlation ─────────────────────────────────────────────
 spatial_correlation:
   configs_to_run: ['base', 'l02', 'l03']
-  n_voids: 25
-  voids_type: "full_sample" # 'full_sample' o 'volume_complete'
+  n_voids: 1
+  voids_type: "full_sample"   # 'full_sample' or 'volume_complete'
   n_sims: 300
-  l_rm_list: [2, 3] # Multipoles to remove
-  smoothing_angles: [30.0, 45.0, 60.0]
+  l_rm_list: [2]           # Multipoles to remove
+  smoothing_angles: [45.0]
   r_min: 8
   r_max: 100
   deltalos_max: 0
   frac_rvoid: 0.5
-  nside: 2048
+  nside: 32
 
+# ── MODE 2: Multipole Cuts & Parameter Shifts ────────────────────────────────
+multipole_cuts:
+  
+  # Dataset
+  cls_name: "Binned_TT_Dl_in_muK_83bins_lmin2_deltal30_601sims_sim0_is_data"
+  
+  # Binning
+  ell_min: 32
+  ell_max: 2000
+  delta_ell: 30
+  
+  # Which simulations to run (null = all available)
+  sim_indices: null
+  
+  # Masks to compare: list of dataset name suffixes ('' = no extra mask)
+  mask_variants:
+    - ""                # baseline (no extra mask - only common mask)
+    - "_mask3"          # galaxy mask 3
+    - "_fsky072"        # fsky~0.72 mask
+  
+  # Scale cuts to sweep
+  lmin_cuts: [2, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
+  lmax_cuts: [700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900]
+  
+  # Parameters to track
+  params_names: ['H0', 'omegamh2', 'ombh2', 'ns', 'tau', 'As_e2tau']
+  
+  # Planck PR3 reference values
+  planck_pr3:
+    H0: 67.36
+    ombh2: 0.02237
+    omch2: 0.1200
+    ns: 0.9649
+    As: 2.1e-9
+    tau: 0.0544
+    a_ps: 10.0
+  
+  # iMinuit settings
+  iminuit:
+    n_workers: 28       # parallel processes
+    tolerance: 0.1
+  
+  # Cobaya MCMC settings
+  cobaya:
+    Rminus1_stop: 0.05
+    max_tries: 10000
+    n_chains: 4         # MPI tasks
+
+
+# ── MODE 3: Discrepancy in Simulations ───────────────────────────────────────
+discrepancy:
+  cls_name: "Binned_TT_Dl_in_muK_83bins_lmin2_deltal30_601sims_sim0_is_data"
+  cls_name_check: "Binned_TT_Dl_in_muK_83bins_lmin2_deltal30_601sims_sim0_is_data_mask3"
+  
+  # Binning
+  ell_min: 32
+  ell_max: 2000
+  delta_ell: 30
+  
+  # Anomaly detection
+  sigma_threshold: 1.5 
+  params_to_flag: ['H0', 'omegamh2']
+  
+  # The two cut types used to define discrepancy
+  lsplit_values: [800]    # ell values where low/high split happens
+  
+  # Mask re-evaluation: after flagging, re-run with these mask variants
+  reeval_masks:
+    - ""          # baseline
+    - "_mask3"    # extra mask
+  n_workers: 28
+
+# ── CMB params ──────────────────────────────────────────────────────
 cmb_params:
   nside: 2048
   lmax: 100
@@ -27,4 +103,3 @@ cmb_params:
 mcmc_setup:
   Rminus1_stop: 0.05
   max_tries: 10000
-

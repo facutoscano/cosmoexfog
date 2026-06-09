@@ -52,23 +52,19 @@ def project_voids_to_map(voids_df, nside, cmb_mask, frac_rvoid=1.0):
 
 
 def remove_low_multipoles(map_in, nside, l_rm, lmax):
-    """
-    Remove low multipoles (from l = 0 to l_rm) from an input map.
-    The code does not handle the coupling between multipoles.
-
-    Returns:
-    - Map with low multipoles removed.
-    """
-
+    """Remove low multipoles. Handles nside limits automatically."""
     nan_mask = np.isnan(map_in)
     map_safe = np.nan_to_num(map_in, nan=0.0) if nan_mask.any() else map_in
     
-    alm = hp.map2alm(map_safe, lmax=lmax)
-    for j in range(l_rm + 1):
+    # Healpy strict mathematical limit to prevent crashes
+    safe_lmax = min(lmax, 3 * nside - 1)
+    
+    alm = hp.map2alm(map_safe, lmax=safe_lmax)
+    for j in range(min(l_rm + 1, safe_lmax + 1)):
         for k in range(j + 1):
-            alm[hp.Alm.getidx(lmax, j, k)] = 0
+            alm[hp.Alm.getidx(safe_lmax, j, k)] = 0
             
-    map_removed = hp.alm2map(alm, nside, lmax=lmax)
+    map_removed = hp.alm2map(alm, nside, lmax=safe_lmax)
     if nan_mask.any():
         map_removed[nan_mask] = np.nan
         

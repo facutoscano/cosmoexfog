@@ -4,7 +4,7 @@ import numpy as np
 import healpy as hp
 import pandas as pd
 
-from src.utils.map_tools import project_voids_to_map, smooth_map
+from src.utils.map_tools import project_voids_to_map, smooth_map, remove_low_multipoles
 from src.utils.stat_tools import compute_weighted_correlation
 from src.utils.plot_tools import plot_correlation_histograms
 from src.utils.io_utils import get_voids_file_list, load_parameter_maps, get_sim_path
@@ -19,6 +19,8 @@ def run(args, config):
         raise ValueError("CRITICAL ERROR: 'smoothing_angles' is None or empty. A smoothing angle is strictly required.")
     
     cmb_folder = paths['cmb_folder']
+    parameters_folder = os.path.join(cmb_folder, 'Parameters')
+    temperature_folder = os.path.join(cmb_folder, 'Temperature')
     maps_folder = os.path.join(paths['output_folder'], 'MAPS_SpatialCorr')
     plots_folder = os.path.join(paths['plots_folder'], 'SpatialCorr')
     os.makedirs(maps_folder, exist_ok=True)
@@ -29,6 +31,12 @@ def run(args, config):
     
     # Load Voids File List
     voids_files = get_voids_file_list(paths['voids_folder'], sc_conf['voids_type'], sc_conf['n_voids'])
+
+    base_mask_path = os.path.join(temperature_folder, 'Common_mask_Temperature_2048.fits')
+    base_mask = hp.read_map(base_mask_path)
+    base_mask = hp.ud_grade(base_mask, nside_out=sc_conf['nside'])
+    base_mask[base_mask < 0.5] = 0
+    base_mask[base_mask >= 0.5] = 1
 
     # Main Loop
     for config_run in sc_conf['configs_to_run']:
@@ -43,20 +51,15 @@ def run(args, config):
 
         # 2. Load Real Parameter Maps
         print('  > Loading parameter maps...')
-        parameters_maps = load_parameter_maps(cmb_folder, pref, param_cut, sc_conf['nside'])
+        parameters_maps = load_parameter_maps(parameters_folder, pref, param_cut, sc_conf['nside'])
         
         for angle in sc_conf['smoothing_angles']:
             print(f"\n  > Evaluating FWHM = {angle}°")
 
-            cmask_path = os.path.join(cmb_folder, f"Common_mask_Temperature_Smoothed_nside{sc_conf['nside']}_{int(angle)}deg.fits")
+            cmask_path = os.path.join(temperature_folder, f"Common_mask_Temperature_Smoothed_nside{sc_conf['nside']}_{int(angle)}deg.fits")
             
             if not os.path.exists(cmask_path):
-                print(f"    [Generating] Smoothed mask at {angle}° not found. Creating...")
-                base_mask = hp.read_map(os.path.join(cmb_folder, 'Common_mask_Temperature_2048.fits'))
-                base_mask = hp.ud_grade(base_mask, nside_out=sc_conf['nside'])
-                base_mask[base_mask < 0.5] = 0
-                base_mask[base_mask >= 0.5] = 1
-                
+                print(f"    [Generating] Smoothed mask at {angle}° not found. Creating...")                
                 smoothed_mask = smooth_map(base_mask, angle)
                 hp.write_map(cmask_path, smoothed_mask, overwrite=True)
             else:
@@ -72,10 +75,10 @@ def run(args, config):
                     voids_df = pd.read_csv(voids_files[idx_cat], sep='\s+', names=['R', 'l', 'b', 'redshift', 'x', 'y', 'z', 'delta1', 'delta23', 'flag', 'delta_LOS'])
                     voids_final = voids_df[(voids_df['R'] >= sc_conf['r_min']) & (voids_df['R'] <= sc_conf['r_max']) & (voids_df['delta_LOS'] <= sc_conf['deltalos_max'])]
                     
-                    cmb_base_map = hp.read_map(os.path.join(cmb_folder, 'SMICA_2048_PR3.fits')) * 1e6
+                    cmb_base_map = hp.read_map(os.path.join(temperature_folder, 'SMICA_PR3_Temperature_2048.fits')) * 1e6
                     cmb_base_map = hp.ud_grade(cmb_base_map, nside_out=sc_conf['nside'])
                     
-                    _, valid_mask, select_indices = project_voids_to_map(voids_final, sc_conf['nside'], smoothed_mask, sc_conf['frac_rvoid'])
+                    _, valid_mask, select_indices = project_voids_to_map(voids_final, sc_conf['nside'], base_mask, sc_conf['frac_rvoid'])
                     
                     cmb_safe = np.zeros(hp.nside2npix(sc_conf['nside']))
                     cmb_safe[select_indices] = cmb_base_map[select_indices]
@@ -91,6 +94,10 @@ def run(args, config):
                 else:
                     cmb_voids_smoothed = hp.read_map(map_path)
                 
+                if config_run in ['l02', 'l03']:
+                    l_rm = 2 if config_run == 'l02' else 3
+                    cmb_voids_smoothed = remove_low_multipoles(cmb_voids_smoothed, sc_conf['nside'], l_rm, config['cmb_params']['lmax'])
+                
                 valid_idx = ~np.isnan(cmb_voids_smoothed)
                 
                 map_x = cmb_voids_smoothed[valid_idx]
@@ -104,22 +111,26 @@ def run(args, config):
 
                 # ----- SIMULATIONS BLOCK -----
                 n_sims = sc_conf.get('n_sims')
-                if n_sims is not None and idx_cat == 0:
+                if n_sims is not None:
                     print(f'    > Running {n_sims} simulations for {angle}°...')
+                    if len(sim_corrs[angle][param_names[0]]) == 0:
+                        for p_name in param_names:
+                            sim_corrs[angle][p_name] = [[] for _ in range(n_sims)]
 
                     for p_name in param_names:
-                        cat_sims = []
                         for s in range(n_sims):
-                            sim_file = get_sim_path(cmb_folder, param_cut, p_name, s)
+                            sim_file = get_sim_path(parameters_folder, param_cut, p_name, s)
                             sim_map = hp.read_map(sim_file)
                             sim_map = hp.ud_grade(sim_map, nside_out=sc_conf['nside'])
                             
+                            if config_run in ['l02', 'l03']:
+                                l_rm = 2 if config_run == 'l02' else 3
+                                sim_map = remove_low_multipoles(sim_map, sc_conf['nside'], l_rm, config['cmb_params']['lmax'])
+
                             map_y_sim = sim_map[valid_idx]
-                            
                             corr_sim = compute_weighted_correlation(map_x, map_y_sim, w_mask)
-                            cat_sims.append(corr_sim)
                             
-                        sim_corrs[angle][p_name].append(cat_sims)
+                            sim_corrs[angle][p_name][s].append(corr_sim)
 
         # 3. Final Plotting
         out_name = f"rmin{sc_conf['r_min']}_rmax{sc_conf['r_max']}_nside{sc_conf['nside']}_Ncat{sc_conf['n_voids']}_{config_run}.pdf"

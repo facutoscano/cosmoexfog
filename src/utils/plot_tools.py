@@ -1,16 +1,9 @@
-#%% Imports
-import os
 import numpy as np
 import matplotlib.pyplot as plt
-import healpy as hp
+from src.utils.stat_tools import compute_empirical_pvalue
 
-#%% Functions
 def plot_correlation_histograms(param_names, smoothing_angles, data_corrs, sim_corrs, out_path, n_voids):
-    """Plot histograms comparing Data vs Sims.
-
-    Returns:
-    - None
-    """
+    """Plot histograms comparing Data vs Sims."""
 
     fig, axes = plt.subplots(len(param_names), len(smoothing_angles), 
                              figsize=(5 * len(smoothing_angles), 4 * len(param_names)))
@@ -22,29 +15,32 @@ def plot_correlation_histograms(param_names, smoothing_angles, data_corrs, sim_c
         for j, angle in enumerate(smoothing_angles):
             ax = axes[i, j]
             
+            # Datos Reales
             data_vals = data_corrs[angle][p_name]
             data_mean = np.mean(data_vals)
             data_std = np.std(data_vals) if n_voids > 1 else 0.0
             
-            sim_vals = np.mean(sim_corrs[angle][p_name], axis=0)
-            sim_mean = np.mean(sim_vals)
-            sim_std = np.std(sim_vals)
+            # Simulaciones 
+            sim_vals_mean = [np.mean(sim_cat_list) for sim_cat_list in sim_corrs[angle][p_name]]
             
-            sigma_det = np.abs(data_mean - sim_mean) / sim_std if sim_std != 0 else 0
-
-            ax.hist(sim_vals, bins=20, histtype='step', color='black', alpha=0.7, label='Sims')
+            # Cálculo de p-value y sigmas
+            p_val, sigma_det = compute_empirical_pvalue(data_mean, sim_vals_mean)
             
+            # Ploteo de Simulaciones
+            ax.hist(sim_vals_mean, bins=20, histtype='step', color='black', alpha=0.7, label='Sims')
+            
+            # Ploteo de Datos
             if n_voids > 1:
                 ax.axvspan(data_mean - data_std, data_mean + data_std, color='xkcd:watermelon', 
                            alpha=0.2, label=r'Data $1\sigma_{jitter}$')
             ax.axvline(data_mean, color='red', linestyle='dashed', linewidth=2, label=f'Data: {data_mean:.3f}')
             
-            ax.set_title(f'{p_name} - {angle}°\nDetección: {sigma_det:.2f} $\sigma$')
+            # Formato estético con p-value
+            ax.set_title(f'{p_name} - {angle}°\np-value: {p_val:.4f} ({sigma_det:.2f} $\\sigma$)')
             if i == len(param_names) - 1:
-                ax.set_xlabel('Correlación')
-            ax.legend()
+                ax.set_xlabel('Correlación de Pearson Ponderada')
+            ax.legend(loc='best', fontsize='small')
 
     plt.tight_layout()
     plt.savefig(out_path, bbox_inches='tight')
     plt.close(fig)
-
