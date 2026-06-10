@@ -32,6 +32,7 @@ Plots/
 Results/
 Output/
 Cobaya_MCMC/
+logs/
 
 # Ignorar formatos de datos astrofísicos y resultados
 *.fits

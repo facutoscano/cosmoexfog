@@ -4,12 +4,12 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=28
-#SBATCH --time=72:00:00
+#SBATCH --time=3-00:00
 #SBATCH --output=logs/mode2_%j.out
 #SBATCH --error=logs/mode2_%j.err
 
 source /home/ftoscano/miniconda3/etc/profile.d/conda.sh
-conda activate cmb-fit
+conda activate cobaya_env
 
 export OMP_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
