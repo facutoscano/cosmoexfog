@@ -21,7 +21,7 @@ def build_cobaya_info(cut_cl, cut_std, cut_edges, ref_dict_PR3, out_prefix, conf
             "logA":  {"prior": {"min": 2.5, "max": 3.5}, "ref": np.log(1e10 * ref_dict_PR3['As']), "proposal": 0.01, "drop": True, "latex": r"\ln(10^{10} A_s)"},
             "As":    {"value": "lambda logA: np.exp(logA) / 1e10", "latex": r"A_s"},
             "H0":    {"prior": {"min": 30.0, "max": 110.0}, "ref": ref_dict_PR3['H0'], "proposal": 0.5, "latex": "H_0"},
-            "tau":   {"prior": {"dist": "norm", "loc": 0.0544, "scale": 0.0073}, "ref": ref_dict_PR3['tau'], "proposal": 0.005, "latex": r"\tau"},
+            "tau": {"prior": {"min": 0.01, "max": 0.15}, "ref": ref_dict_PR3['tau'], "proposal": 0.005, "latex": r"\tau"},
             "a_ps":  a_ps_dynamic,
             "omegamh2": {"derived": "lambda ombh2, omch2: ombh2 + omch2", "latex": r"\omega_m"},
             "As_e2tau": {"derived": "lambda As, tau: As * np.exp(-2 * tau) * 1e9", "latex": r"10^9 A_s e^{-2\tau}"}

@@ -11,7 +11,7 @@ paths:
 # ── MODE 1: Spatial Correlation ─────────────────────────────────────────────
 spatial_correlation:
   configs_to_run: ['base', 'l02', 'l03']
-  n_voids: 1
+  n_voids: 10
   voids_type: "full_sample"   # 'full_sample' or 'volume_complete'
   n_sims: 300
   l_rm_list: [2]           # Multipoles to remove
@@ -43,8 +43,8 @@ multipole_cuts:
     - "_fsky072"        # fsky~0.72 mask
   
   # Scale cuts to sweep
-  lmin_cuts: [2, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
-  lmax_cuts: [700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900]
+  lmin_cuts: [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100]
+  lmax_cuts: [700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700]
   
   # Parameters to track
   params_names: ['H0', 'omegamh2', 'ombh2', 'ns', 'tau', 'As_e2tau']
