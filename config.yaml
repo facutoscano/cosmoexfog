@@ -14,7 +14,7 @@ spatial_correlation:
   n_voids: 10
   voids_type: "full_sample"   # 'full_sample' or 'volume_complete'
   n_sims: 300
-  l_rm_list: [2]           # Multipoles to remove
+  l_rm_list: [2]
   smoothing_angles: [45.0]
   r_min: 8
   r_max: 100
@@ -24,80 +24,77 @@ spatial_correlation:
 
 # ── MODE 2: Multipole Cuts & Parameter Shifts ────────────────────────────────
 multipole_cuts:
-  
+
   # Dataset
   cls_name: "Binned_TT_Dl_in_muK_83bins_lmin2_deltal30_601sims_sim0_is_data"
-  
-  # Binning
-  ell_min: 32
+
+  # Binning — must match the FITS file structure
+  # FIX: ell_min_file is the first edge of the FITS file (l=2 from the filename).
+  #      ell_min / ell_max are only used as analysis cuts in generate_cuts_list.
+  ell_min_file: 2          # <- NEW: first ell edge stored in the FITS file
+  ell_min: 32              # used only as lmin cut baseline (not for edge construction)
   ell_max: 2000
   delta_ell: 30
-  
+
   # Which simulations to run (null = all available)
   sim_indices: null
-  
-  # Masks to compare: list of dataset name suffixes ('' = no extra mask)
+
+  # Masks to compare
   mask_variants:
-    - ""                # baseline (no extra mask - only common mask)
-    - "_mask3"          # galaxy mask 3
-    - "_fsky072"        # fsky~0.72 mask
-  
+    - ""
+    - "_mask3"
+    - "_fsky072"
+
   # Scale cuts to sweep
   lmin_cuts: [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100]
   lmax_cuts: [700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700]
-  
+
   # Parameters to track
   params_names: ['H0', 'omegamh2', 'ombh2', 'ns', 'tau', 'As_e2tau']
-  
+
   # Planck PR3 reference values
+  # FIX: added omegamh2 (used as reference in plots)
   planck_pr3:
     H0: 67.36
     ombh2: 0.02237
     omch2: 0.1200
+    omegamh2: 0.1430    # <- NEW: omch2 + ombh2, used by plots.py
     ns: 0.9649
     As: 2.1e-9
     tau: 0.0544
     a_ps: 10.0
-  
+
   # iMinuit settings
   iminuit:
-    n_workers: 28       # parallel processes
+    n_workers: 28
     tolerance: 0.1
-  
+
   # Cobaya MCMC settings
   cobaya:
     Rminus1_stop: 0.05
     max_tries: 10000
-    n_chains: 4         # MPI tasks
-
+    n_chains: 4
 
 # ── MODE 3: Discrepancy in Simulations ───────────────────────────────────────
 discrepancy:
   cls_name: "Binned_TT_Dl_in_muK_83bins_lmin2_deltal30_601sims_sim0_is_data"
   cls_name_check: "Binned_TT_Dl_in_muK_83bins_lmin2_deltal30_601sims_sim0_is_data_mask3"
-  
-  # Binning
+  ell_min_file: 2
   ell_min: 32
   ell_max: 2000
   delta_ell: 30
-  
-  # Anomaly detection
-  sigma_threshold: 1.5 
+  sigma_threshold: 1.5
   params_to_flag: ['H0', 'omegamh2']
-  
-  # The two cut types used to define discrepancy
-  lsplit_values: [800]    # ell values where low/high split happens
-  
-  # Mask re-evaluation: after flagging, re-run with these mask variants
+  lsplit_values: [800]
   reeval_masks:
-    - ""          # baseline
-    - "_mask3"    # extra mask
+    - ""
+    - "_mask3"
   n_workers: 28
 
-# ── CMB params ──────────────────────────────────────────────────────
+# ── CMB params (Mode 1) ──────────────────────────────────────────────────────
 cmb_params:
   nside: 2048
-  lmax: 100
+  lmax: 2000             # FIX: was 100, must match map resolution
   multipole_cuts: ['normal', 'no_ell2', 'no_ell3']
 
 mcmc_setup:
