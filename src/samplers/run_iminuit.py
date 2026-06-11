@@ -10,19 +10,21 @@ from src.utils.camb_utils import get_theory_cls
 
 # ── chi2 factory ─────────────────────────────────────────────────────────────
 
-def create_chi2_function(data_cl, data_std, ell_edges, lmax_req):
-    def my_cmb_chi2(om_b, om_cdm, n_s, a_s, h_0, a_ps, tau):
-        if not (0.01 < om_b < 0.05 and 0.09 < om_cdm < 0.4 and
-                0.8 < n_s < 0.999 and 1.7e-9 < a_s < 2.5e-9 and
-                30. < h_0 < 110. and 0.01 < tau < 0.15):
+def create_chi2_function(data_cl, data_std, ell_edges, lmax_req, param_limits, tau_fid):
+    def my_cmb_chi2(om_b, om_cdm, n_s, As_e2tau, h_0, a_ps):
+        if not (param_limits['ombh2'][0]    < om_b      < param_limits['ombh2'][1] and
+                param_limits['omch2'][0]    < om_cdm    < param_limits['omch2'][1] and
+                param_limits['ns'][0]       < n_s       < param_limits['ns'][1]    and
+                param_limits['As_e2tau'][0] < As_e2tau  < param_limits['As_e2tau'][1] and
+                param_limits['H0'][0]       < h_0       < param_limits['H0'][1]):
             return 1.e16
-
+        
         params_dict = {
             'ombh2': om_b, 'omch2': om_cdm, 'ns': n_s,
-            'As': a_s, 'H0': h_0, 'tau': tau, 'a_ps': a_ps
+            'As_e2tau': As_e2tau, 'H0': h_0, 'a_ps': a_ps
         }
         try:
-            _, theo_dls = get_theory_cls(params_dict, lmax_req)
+            _, theo_dls = get_theory_cls(params_dict, lmax_req, tau_fid=tau_fid)
         except Exception:
             return 1.e16
 
@@ -32,35 +34,35 @@ def create_chi2_function(data_cl, data_std, ell_edges, lmax_req):
     return my_cmb_chi2
 
 
-# ── single-sim worker ─────────────────────────────────────────────────────────
-# FIX: accepts cl_data_sim (a 1-D row) instead of the full cl_matrix.
-# The old signature passed cl_matrix (601×83, ~400 KB) to every task;
-# with ~13000 tasks that's >5 GB of IPC traffic. Now each task only carries
-# the single row it needs (~664 B each).
-
-def process_single_sim(cl_data_sim, cl_std, ell_edges, cut_info, planck_pr3, sim_idx):
+def process_single_sim(cl_data_sim, cl_std, ell_edges, cut_info, planck_pr3, param_limits, tau_fid, sim_idx):
     cut_cl, cut_std, cut_edges = slice_cls(
         cut_info['ell_cut'], cl_data_sim, cl_std, ell_edges, cut_info['low_cut'])
 
-    _nan_row = {p: np.nan for p in ['H0', 'omegamh2', 'ombh2', 'ns', 'tau', 'As_e2tau', 'a_ps']}
+    _nan_row = {p: np.nan for p in ['H0', 'omegamh2', 'ombh2', 'ns', 'As_e2tau', 'a_ps']}
 
     if len(cut_cl) < 5:
         return sim_idx, cut_info['name'], _nan_row
 
     lmax_req  = int(cut_edges[-1])
-    chi2_func = create_chi2_function(cut_cl, cut_std, cut_edges, lmax_req)
+    chi2_func = create_chi2_function(cut_cl, cut_std, cut_edges, lmax_req, param_limits, tau_fid)
 
     m = Minuit(chi2_func,
                om_b  = planck_pr3['ombh2'],
                om_cdm= planck_pr3['omch2'],
                n_s   = planck_pr3['ns'],
-               a_s   = planck_pr3['As'],
+               As_e2tau = planck_pr3['As_e2tau'],
                h_0   = planck_pr3['H0'],
-               a_ps  = planck_pr3['a_ps'],
-               tau   = planck_pr3['tau'])
+               a_ps  = planck_pr3['a_ps'])
+    
+    for pname, mkey in [
+        ('ombh2','om_b'), 
+        ('omch2','om_cdm'), 
+        ('ns','n_s'),
+        ('As_e2tau','As_e2tau'), 
+        ('H0','h_0'), 
+        ('a_ps','a_ps')]:
+        m.limits[mkey] = param_limits[pname]
 
-    m.limits['a_ps'] = (0, 300)
-    # Fix a_ps when there's no high-ell constraining power
     if (cut_info['ell_cut'] is not None
             and not cut_info['low_cut']
             and cut_info['ell_cut'] <= 1250):
@@ -80,13 +82,11 @@ def process_single_sim(cl_data_sim, cl_std, ell_edges, cut_info, planck_pr3, sim
         'omch2':    v['om_cdm'],
         'ns':       v['n_s'],
         'tau':      v['tau'],
-        'As_e2tau': v['a_s'] * np.exp(-2 * v['tau']) * 1e9,
+        'As_e2tau': v['As_e2tau'],
         'a_ps':     v['a_ps'],
     }
     return sim_idx, cut_info['name'], results
 
-
-# ── pipeline orchestrator ─────────────────────────────────────────────────────
 
 def run_iminuit_pipeline(cl_matrix, cl_std, ell_edges, cuts, out_file, config):
     n_sims    = cl_matrix.shape[0]

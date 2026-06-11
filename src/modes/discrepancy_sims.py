@@ -24,6 +24,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 from astropy.io import fits
+from src.utils.data_utils import build_ell_edges_and_slice_data
 
 warnings.filterwarnings('ignore')
 
@@ -141,12 +142,16 @@ def _fit_one_iminuit(args):
     }
 
 
-def _refit_flagged(flagged_sims, cls_path, ell_bins, lsplit_values,
-                   ref_params, n_workers, mask_label):
+def _refit_flagged(flagged_sims, cls_path, ell_bins, lsplit_values, ref_params, n_workers, mask_label, ell_min_file, ell_min, delta_ell):
     """Re-fit the flagged simulations for the given mask dataset."""
     with fits.open(cls_path) as hdul:
-        data = hdul[0].data
-    cl_std = np.std(data[1:], axis=0)
+        data_full = hdul[0].data
+    cl_std_full = np.std(data_full[1:], axis=0)
+
+    data, cl_std, ell_bins_check = build_ell_edges_and_slice_data(data_full,cl_std_full, ell_min_file, ell_min, delta_ell)
+
+    assert np.array_equal(ell_bins_check, ell_bins), (
+        "ell_bins mismatch between baseline and refit. Aborting.")
 
     cuts_needed = []
     for lsplit in lsplit_values:
@@ -265,7 +270,14 @@ def run(args, config):
     ell_min        = cfg.get('ell_min', 32)
     ell_max        = cfg.get('ell_max', 2000)
     delta_ell      = cfg.get('delta_ell', 30)
-    ell_bins       = np.arange(ell_min, ell_max + delta_ell, delta_ell)
+    ell_min_file = cfg.get('ell_min_file', 2)
+    cls_path_for_edges = os.path.join(paths_cfg['cls_folder'], f"{cls_name}.fits")
+    with fits.open(cls_path_for_edges) as hdul:
+        data = hdul[0].data
+    cl_std_full = np.std(data[1:], axis=0)
+    _, _, ell_bins = build_ell_edges_and_slice_data(data, cl_std_full, ell_min_file, ell_min, delta_ell)
+    print(f">> ell_bins: {len(ell_bins)} edges | {ell_bins[0]}..{ell_bins[-1]}")
+    
     sigma_threshold = cfg.get('sigma_threshold', 1.2)
     params_to_flag = cfg.get('params_to_flag', ['H0', 'omegamh2'])
     lsplit_values  = cfg.get('lsplit_values', [800])
@@ -345,7 +357,8 @@ def run(args, config):
 
                 df_refit = _refit_flagged(
                     list(flagged_sims), cls_check_file, ell_bins,
-                    [lsplit], ref_params, n_workers, mask_suffix)
+                    [lsplit], ref_params, n_workers, mask_suffix,
+                    ell_min_file, ell_min, delta_ell)
 
                 if df_refit.empty:
                     continue

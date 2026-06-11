@@ -50,18 +50,17 @@ multipole_cuts:
   lmax_cuts: [700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700]
 
   # Parameters to track
-  params_names: ['H0', 'omegamh2', 'ombh2', 'ns', 'tau', 'As_e2tau']
+  params_names: ['H0', 'omegamh2', 'ombh2', 'ns', 'As_e2tau']
 
   # Planck PR3 reference values
-  # FIX: added omegamh2 (used as reference in plots)
   planck_pr3:
     H0: 67.36
     ombh2: 0.02237
     omch2: 0.1200
-    omegamh2: 0.1430    # <- NEW: omch2 + ombh2, used by plots.py
+    omegamh2: 0.14237
     ns: 0.9649
-    As: 2.1e-9
-    tau: 0.0544
+    tau_fid: 0.0544
+    As_e2tau: 1.881
     a_ps: 10.0
 
   # iMinuit settings

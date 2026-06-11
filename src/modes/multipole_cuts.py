@@ -6,6 +6,7 @@ from src.utils.io_utils import load_cls_matrix, export_pkl_to_tsv
 from src.samplers.run_iminuit import run_iminuit_pipeline
 from src.samplers.run_cobaya import run_mcmc
 from src.modes.plots import plot_parameter_grid, plot_shift_grid
+from src.utils.data_utils import build_ell_edges_and_slice_data
 
 warnings.filterwarnings('ignore')
 
@@ -42,18 +43,16 @@ def run(args, config):
             print(f"  [!] File not found: {cls_path}. Skipping...")
             continue
 
-        # ── FIX 1: derive ell_edges from the actual loaded data shape ──────
-        # The FITS filename says "83bins_lmin2_deltal30": 83 bins starting at ell=2.
-        # Building ell_edges from config values (ell_min=32) produced only 66 bins
-        # and caused an index mismatch with cl_matrix[:,83] in slice_cls.
-        n_bins       = cl_matrix.shape[1]                     # e.g. 83
-        ell_min_file = cfg.get('ell_min_file', 2)             # first edge in FITS
-        ell_edges    = np.arange(ell_min_file,
-                                 ell_min_file + (n_bins + 1) * delta_ell,
-                                 delta_ell)                   # shape (84,) → 83 bins
-        print(f"  [+] ell_edges: {len(ell_edges)} edges | "
-              f"ell = {ell_edges[0]}..{ell_edges[-1]} | {n_bins} bins")
-        # ───────────────────────────────────────────────────────────────────
+        n_bins_file  = cl_matrix.shape[1]
+        ell_min_file = cfg.get('ell_min_file', 2)
+        ell_min      = cfg.get('ell_min', 32)
+
+        
+        cl_matrix, cl_std, ell_edges = build_ell_edges_and_slice_data( cl_matrix, cl_std, ell_min_file, ell_min, delta_ell)
+
+        print(f"  [+] FITS bins: {n_bins_file} | analysis bins: {cl_matrix.shape[1]} "
+              f"| ell range: {ell_edges[0]}..{ell_edges[-1]}")
+        
 
         out_dir   = os.path.join(paths['output_folder'], 'multipole_cuts', dataset_name)
         plots_dir = os.path.join(paths['plots_folder'],  'multipole_cuts', dataset_name)

@@ -4,42 +4,40 @@ import numpy as np
 from cobaya.run import run
 from getdist import loadMCSamples
 from src.utils.data_utils import slice_cls
-# FIX: get_cobaya_likelihood now lives in run_iminuit (where it belongs — same
-#      chi2 logic). The old import tried to pull it from a non-existent location.
 from src.samplers.run_iminuit import get_cobaya_likelihood
 
 
 #%% Functions
 
-def build_cobaya_info(cut_cl, cut_std, cut_edges, ref_dict_PR3,
-                      out_prefix, config, a_ps_dynamic):
+def build_cobaya_info(cut_cl, cut_std, cut_edges, ref_dict_PR3, out_prefix, config, a_ps_dynamic, param_limits, tau_fid):
     """Build the Cobaya info dict for a single (data, cut) run."""
 
     info = {
-        "params": {
-            "ombh2":  {"prior": {"min": 0.01,  "max": 0.05},  "ref": ref_dict_PR3['ombh2'],
-                       "proposal": 0.0001, "latex": r"\omega_b"},
-            "omch2":  {"prior": {"min": 0.09,  "max": 0.40},  "ref": ref_dict_PR3['omch2'],
-                       "proposal": 0.001,  "latex": r"\omega_c"},
-            "ns":     {"prior": {"min": 0.8,   "max": 0.999}, "ref": ref_dict_PR3['ns'],
-                       "proposal": 0.005,  "latex": r"n_s"},
-            "logA":   {"prior": {"min": 2.5,   "max": 3.5},
-                       "ref": np.log(1e10 * ref_dict_PR3['As']),
-                       "proposal": 0.01, "drop": True, "latex": r"\ln(10^{10} A_s)"},
-            "As":     {"value": "lambda logA: np.exp(logA) / 1e10", "latex": r"A_s"},
-            "H0":     {"prior": {"min": 30.0,  "max": 110.0}, "ref": ref_dict_PR3['H0'],
-                       "proposal": 0.5,   "latex": "H_0"},
-            "tau":    {"prior": {"dist": "norm", "loc": 0.054, "scale": 0.007},
-                       "ref": ref_dict_PR3['tau'], "proposal": 0.003, "latex": r"\tau"},
-            # FIX: a_ps must be a dict, never a raw float.
-            # When a_ps_dynamic is a prior dict  → it's a free parameter.
-            # When a_ps_dynamic is {"value": X} → it's fixed to X.
-            "a_ps":   a_ps_dynamic,
+        "params":
+        {
+            "ombh2":    {"prior": param_limits['ombh2'],
+                         "ref": ref_dict_PR3['ombh2'],"proposal": 0.0001, "latex": r"\omega_b"},
+            "omch2":    {"prior": param_limits['omch2'],
+                         "ref": ref_dict_PR3['omch2'],
+                         "proposal": 0.001, "latex": r"\omega_c"},
+            "ns":       {"prior": param_limits['ns'],
+                         "ref": ref_dict_PR3['ns'],
+                         "proposal": 0.005, "latex": r"n_s"},
+            "As_e2tau": {"prior": param_limits['As_e2tau'],
+                         "ref": ref_dict_PR3['As_e2tau'],
+                         "proposal": 0.01,
+                         "latex": r"10^9 A_s e^{-2\tau}"},
+            "As":       {"value": f"lambda As_e2tau:As_e2tau * 1e-9 * np.exp(2 * {tau_fid})",
+                         "latex": r"A_s"},
+            "tau":      {"value": tau_fid,
+                         "latex": r"\tau"},
+            "H0":       {"prior": param_limits['H0'],
+                         "ref": ref_dict_PR3['H0'],
+                         "proposal": 0.5, "latex":"H_0"},
+            "a_ps":     a_ps_dynamic,
             "omegamh2": {"derived": "lambda ombh2, omch2: ombh2 + omch2",
                          "latex": r"\omega_m"},
-            "As_e2tau": {"derived": "lambda As, tau: As * np.exp(-2 * tau) * 1e9",
-                         "latex": r"10^9 A_s e^{-2\tau}"},
-        },
+},
         "likelihood": {
             "my_cmb_like": {
                 "external": get_cobaya_likelihood(cut_cl, cut_std, cut_edges),

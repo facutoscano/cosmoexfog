@@ -26,13 +26,12 @@ PARAM_LABELS = {
     'ombh2':     r'$\Omega_b h^2$',
     'omch2':     r'$\Omega_c h^2$',
     'ns':        r'$n_s$',
-    'tau':       r'$\tau$',
-    'As':        r'$A_s$',
+    'As_e2tau':        r'$A_se^{-2\tau}$',
 }
 
 PLANCK_PR3 = {
     'H0': 67.36, 'omegamh2': 0.1430, 'ombh2': 0.02237,
-    'omch2': 0.1200, 'ns': 0.9649, 'tau': 0.0544,
+    'omch2': 0.1200, 'ns': 0.9649, 'tau': 0.0544,'As_e2tau': 1.881
 }
 
 
